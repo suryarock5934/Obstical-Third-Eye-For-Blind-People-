@@ -1,0 +1,288 @@
+#include<pic.h>
+#include<htc.h>
+                                     
+
+void UART_INIT();
+void uart_sendstring(unsigned char *str);
+void uart_sendchar(unsigned char a);
+char UART_getchar();
+
+void Delay1();
+void delay();
+void Delay2();
+
+
+#define lcd PORTB       
+#define rs RD6
+#define en RD7
+
+#define ir1 RD0
+#define ir2 RD1
+#define relay1 RC0
+#define relay2 RC1
+#define relay3 RC2
+#define relay4 RC3
+
+
+void lcd_data(unsigned char a);
+void lcd_com(unsigned char a);
+void lcd_str(unsigned char *a);
+void lcd_init();
+
+
+void ADC_Init();
+unsigned int ADC_Read(unsigned char channel);
+void val(unsigned int re);
+void val1(unsigned int re);
+void val2(unsigned int re);
+
+void Delay(unsigned int s)
+{
+
+for(i=0;i<s;i++)
+for(j=0;j<10555;j++);
+}
+void Delay1()
+{
+
+for(i=0;i<20;i++)
+for(j=0;j<1075;j++);
+}
+void Delay2()
+{
+
+for(i=0;i<50000;i++);
+}
+void main()
+{
+TRISB=0X00;
+PORTB=0X00;
+TRISC=0x80;
+PORTC=0X00;
+TRISD=0X03;
+PORTD=0X00;
+UART_INIT();
+lcd_init();
+ADC_Init();
+lcd_com(0x80);
+lcd_str("    WELCOME   "); 
+__delay_ms(3000);
+lcd_com(0x01);
+lcd_com(0x80);
+lcd_str("  SOLAR PANEL     "); 
+lcd_com(0xC0);
+lcd_str(" CLEANING ROBOT   ");
+__delay_ms(1000);
+lcd_com(0x01);
+lcd_com(0x80);
+
+while(1)
+{
+n1=ADC_Read(0);
+n2=ADC_Read(1);
+n3=ADC_Read(3);
+n4=ADC_Read(2);
+
+n2=ADC_Read(1);
+lcd_com(0x80);
+lcd_str("L="); 
+n2=n2*0.0977;
+val(n2);
+__delay_ms(500);
+
+n1=ADC_Read(0);
+lcd_com(0x88);
+lcd_str("V=");
+n1=n1*1.466;
+val2(n1);
+
+
+n3=ADC_Read(3);
+lcd_com(0xC0);
+lcd_str("T="); 
+n3=n3-30;
+val(n3);
+__delay_ms(500);
+
+
+n4=ADC_Read(2);
+lcd_com(0xC8);
+lcd_str("H=");
+n4=n4*0.0977; 
+val(n4);
+__delay_ms(500);
+
+if(n2<20)
+{
+if (ir1==0)
+{
+lcd_com(0xCE);
+lcd_str("UP");
+relay1=1;
+relay2=0;
+relay3=1;
+relay4=0;
+__delay_ms(1100);
+}
+
+if (ir2==0)
+{
+lcd_com(0xCE);
+lcd_str("DOWN");
+relay1=0;
+relay2=1;
+relay3=1;
+relay4=0;
+__delay_ms(1100);
+}
+}
+  
+else
+{
+relay1=0;
+relay2=0;
+relay3=0;
+relay4=0;
+}
+                   
+}
+}
+
+
+
+
+void UART_INIT()
+{
+TXSTA=0X24;
+RCSTA=0X90;
+TXREG=0X00;
+RCREG=0X00;
+SPBRG=0X81;
+
+}
+
+void uart_sendstring(unsigned char *str)
+{
+while(*str)
+{
+uart_sendchar(*str++);
+for(i=0;i<2000;i++);
+}
+
+}
+
+void uart_sendchar(unsigned char a)
+{
+while(!TXIF);
+TXREG=a;
+}
+
+char UART_getchar()
+{
+while(RCIF == 0);                   
+    return RCREG; 
+}
+
+void lcd_init()
+{
+lcd_com(0x38);
+lcd_com(0x0c);
+lcd_com(0x06);
+lcd_com(0x80);
+lcd_com(0x01);
+}
+
+void lcd_com(unsigned char com)
+{
+lcd=com;
+rs=0;
+en=1;
+delay();
+en=0;
+delay();
+}
+void lcd_data(unsigned char dat)
+{
+lcd=dat;
+rs=1;
+en=1;
+delay();
+en=0;
+delay();
+}
+void lcd_str(unsigned char *a)
+{
+while(*a)
+{
+lcd_data(*a++);
+}
+}
+void delay()
+{
+unsigned char i;
+for(i=0;i<255;i++);
+}
+
+void ADC_Init()
+{
+  ADCON0 = 0x41;    
+  ADCON1 = 0xC0;    
+                    
+}
+unsigned int ADC_Read(unsigned char channel)
+{
+  if(channel > 7)           
+  return 0; 
+  ADCON0 &= 0xC5;       
+  ADCON0 |= channel<<3;    
+  __delay_ms(10);       
+  GO_nDONE = 1;       
+  while(GO_nDONE);       
+  return ((ADRESH<<8)+ADRESL);       
+  
+}
+
+
+void val(unsigned int re)
+{
+delay(200);
+d1=(re/1000);
+d2=((re-d1*1000)/100);
+d3=((re-(d1*1000+d2*100))/10);
+d4=(re-(d1*1000+d2*100+d3*10));
+lcd_data(d2+0x30);
+lcd_data(d3+0x30);
+lcd_data(d4+0x30);
+delay(50);
+}
+
+void val2(unsigned int re)
+{
+delay(200);
+d1=(re/1000);
+d2=((re-d1*1000)/100);
+d3=((re-(d1*1000+d2*100))/10);
+d4=(re-(d1*1000+d2*100+d3*10));
+lcd_data(d1+0x30);
+lcd_data(d2+0x30);
+lcd_data('.');
+lcd_data(d3+0x30);
+lcd_data(d4+0x30);
+delay(50);
+}
+
+void val1(unsigned int re)
+{
+delay(200);
+d1=(re/1000);
+d2=((re-d1*1000)/100);
+d3=((re-(d1*1000+d2*100))/10);
+d4=(re-(d1*1000+d2*100+d3*10));
+
+uart_sendchar(d1+0x30);
+uart_sendchar(d2+0x30);
+uart_sendchar('.');
+uart_sendchar(d3+0x30);
+uart_sendchar(d4+0x30);
+delay(50);
+}
